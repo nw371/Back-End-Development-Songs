@@ -51,3 +51,69 @@ def parse_json(data):
 ######################################################################
 # INSERT CODE HERE
 ######################################################################
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify(dict(status="OK")), 200
+
+@app.route("/count", methods=["GET"])
+def count():
+    """return length of list"""
+    count = db.songs.count_documents({})
+    return {"count": count}, 200
+
+@app.route("/song", methods=["GET"])
+def songs():
+    all_songs = db.songs.find({})
+    return json_util.dumps({"songs": all_songs}), 200
+
+@app.route("/song/<int:id>", methods=["GET"])
+def get_song_by_id(id):
+    var_song = db.songs.find_one({"id": id})
+    if not var_song:
+        return jsonify({"Message": "Song not found"}), 404
+    return json_util.dumps({"Yours song": var_song}), 200
+
+
+@app.route("/song", methods=["POST"])
+def create_song():
+    rec_data = request.get_json()
+    new_id = rec_data.get('id')
+
+    # Check for existing picture with the same 
+    existing_song = db.songs.find_one({"id": new_id})
+    if existing_song:
+        return jsonify({"Message": f"song with id {new_id} already present"}), 302
+    
+    result = db.songs.insert_one(rec_data)
+    response_data = {"inserted id": result.inserted_id}
+    return json_util.dumps(response_data), 201
+
+@app.route("/song/<int:id>", methods=["PUT"])
+def update_song(id):
+    update_data = request.get_json()
+    var_song = db.songs.find_one({"id": id})
+    if not var_song:
+        return jsonify({"Message": "Song not found"}), 404
+    
+    if not update_data:
+        return jsonify({"error": "No data provided"}), 400
+    
+
+    result = db.songs.update_one(
+            {"id": id},
+            {"$set": update_data}
+            )
+
+    if result.modified_count == 0:
+        return {"message": "song found, but nothing updated"}, 200
+    else:
+        return parse_json(db.songs.find_one({"id": id})), 201 
+    
+@app.route("/song/<int:id>", methods=["DELETE"])
+def delete_song(id):
+    result = db.songs.delete_one({"id": id})
+
+    if result.deleted_count == 0:
+        return {"message": "song not found"}, 404
+    else:
+        return "", 204
